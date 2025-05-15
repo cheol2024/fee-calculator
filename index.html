@@ -1,50 +1,224 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <title>Seoul Bus Map</title>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
+  <title>FIFA 수수료 계산기</title>
   <style>
-    #map {
-      height: 100vh;
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f5f5;
+      padding: 30px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 20px 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    label {
+      display: block;
+      margin: 15px 0 5px;
+      font-weight: 500;
+    }
+    input[type="number"] {
       width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    input[type="checkbox"] {
+      transform: scale(1.5);
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    .price-note {
+      font-size: 0.9em;
+      color: #555;
+      margin-bottom: 10px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px;
+      width: 100%;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .result {
+      margin-top: 25px;
+      background: #ecf0f1;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .coupon-group {
+      margin-bottom: 10px;
+    }
+    .extra-coupons {
+      display: none;
+      margin-top: 10px;
+      gap: 10px;
+      justify-content: space-between;
+    }
+    .extra-coupons input {
+      flex: 1;
+      min-width: 30%;
     }
   </style>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB8iFwgXjgwJeiSSZpDH7jZ18TIxhXkqj4"></script>
 </head>
 <body>
-  <div id="map"></div>
+  <div class="container">
+    <div style="position: absolute; top: 20px; right: 30px; font-size: 0.8em; color: gray;">25-05-16 v1</div>
+    <h1>피파 수수료 계산기</h1>
+
+    <label>판매할 선수 수 입력:</label>
+    <input type="number" id="playerCount" min="1" placeholder="예: 11" oninput="generatePriceInputs()" />
+
+    <div id="priceInputs"></div>
+
+    <label><input type="checkbox" id="topClass" /> TOP CLASS (20%)</label>
+    <label><input type="checkbox" id="pcRoom" /> PC방 혜택 (30%)</label>
+
+    <label>수수료 쿠폰 개수 입력:</label>
+    <div id="couponContainer">
+      <div class="coupon-group"><input type="number" id="coupon50" placeholder="50% 쿠폰 장수" /></div>
+      <div class="coupon-group"><input type="number" id="coupon40" placeholder="40% 쿠폰 장수" /></div>
+      <div class="coupon-group"><input type="number" id="coupon30" placeholder="30% 쿠폰 장수" /></div>
+    </div>
+
+    <button type="button" id="toggleBtn" onclick="toggleExtraCoupons()">+ 추가 쿠폰 입력</button>
+
+    <div id="extraCoupons" class="extra-coupons">
+      <input type="number" id="coupon35" placeholder="35% 쿠폰" />
+      <input type="number" id="coupon20" placeholder="20% 쿠폰" />
+      <input type="number" id="coupon10" placeholder="10% 쿠폰" />
+    </div>
+
+    <button onclick="calculateTotal()">총 계산하기</button>
+
+    <div class="result" id="result"></div>
+  </div>
 
   <script>
-    function initMap() {
-      const center = { lat: 37.505, lng: 127.105 }; // 문정동 중심 좌표
-
-      const map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 15,
-        center: center,
-      });
-
-      const busIcon = {
-        url: "https://cdn-icons-png.flaticon.com/512/61/61088.png", // 버스 아이콘
-        scaledSize: new google.maps.Size(40, 40),
-      };
-
-      const marker = new google.maps.Marker({
-        position: center,
-        map: map,
-        icon: busIcon,
-        title: "서울74가3829",
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content: "<strong>서울74가3829</strong>",
-      });
-
-      marker.addListener("click", () => {
-        infoWindow.open(map, marker);
-      });
+    function toggleExtraCoupons() {
+      const extra = document.getElementById("extraCoupons");
+      const btn = document.getElementById("toggleBtn");
+      const visible = extra.style.display === "flex";
+      extra.style.display = visible ? "none" : "flex";
+      btn.textContent = visible ? "+ 추가 쿠폰 입력" : "접기";
     }
 
-    window.onload = initMap;
+    function generatePriceInputs() {
+      const count = parseInt(document.getElementById("playerCount").value);
+      const container = document.getElementById("priceInputs");
+      container.innerHTML = "";
+      for (let i = 0; i < count; i++) {
+        const label = document.createElement("label");
+        label.innerText = `${i + 1}번 선수 가격 (조.억):`;
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.className = "playerPrice";
+        input.step = "0.01";
+        input.placeholder = `예: 17.5`;
+        input.dataset.index = i;
+        input.min = 0;
+        input.oninput = updateReadable;
+
+        const note = document.createElement("div");
+        note.className = "price-note";
+        note.id = `note-${i}`;
+
+        container.appendChild(label);
+        container.appendChild(input);
+        container.appendChild(note);
+      }
+    }
+
+    function updateReadable(e) {
+      const inputVal = parseFloat(e.target.value);
+      const 조 = Math.floor(inputVal);
+      const 소수 = Math.floor((inputVal - 조) * 10);
+      const value = (조 * 10000 + 소수 * 1000) * 100000000;
+      const note = document.getElementById(`note-${e.target.dataset.index}`);
+      if (!isNaN(value) && value > 0) {
+        let text = '';
+        if (조 > 0) text += `${조}조`;
+        if (소수 > 0) text += ` ${소수 * 1000}억`;
+        note.textContent = `➡ ${text.trim()} BP`;
+      } else {
+        note.textContent = '';
+      }
+    }
+
+    function calculateTotal() {
+      const prices = Array.from(document.getElementsByClassName("playerPrice"))
+        .map(input => {
+          const val = parseFloat(input.value);
+          const 조 = Math.floor(val);
+          const 소수 = Math.floor((val - 조) * 10);
+          return (조 * 10000 + 소수 * 1000) * 100000000;
+        })
+        .filter(val => !isNaN(val))
+        .sort((a, b) => b - a);
+
+      const topClass = document.getElementById("topClass").checked;
+      const pcRoom = document.getElementById("pcRoom").checked;
+
+      const couponRates = [50, 40, 35, 30, 25, 20, 10];
+      const coupons = {};
+      couponRates.forEach(rate => {
+        const input = document.getElementById(`coupon${rate}`);
+        if (input) {
+          coupons[rate] = parseInt(input.value) || 0;
+        }
+      });
+
+      let totalReceive = 0;
+
+      prices.forEach(price => {
+        let baseFee = price * 0.4;
+        let discount = 0;
+
+        if (topClass) discount += baseFee * 0.2;
+        if (pcRoom) discount += baseFee * 0.3;
+
+        for (let rate of couponRates) {
+          if (coupons[rate] > 0) {
+            discount += baseFee * (rate / 100);
+            coupons[rate]--;
+            break;
+          }
+        }
+
+        const fee = baseFee - discount;
+        totalReceive += price - fee;
+      });
+
+      document.getElementById("result").innerHTML = `
+        <strong>총 실수령 금액:</strong> <span style="color: green; font-size: 1.2em;">${formatReadable(totalReceive)} BP</span>
+      `;
+    }
+
+    function formatReadable(val) {
+      const 조 = Math.floor(val / 1_0000_0000_0000);
+      const 억 = Math.floor((val % 1_0000_0000_0000) / 1_0000_0000);
+      let result = '';
+      if (조 > 0) result += `${조}조`;
+      if (억 > 0) result += ` ${억}억`;
+      return result.trim();
+    }
   </script>
 </body>
 </html>
